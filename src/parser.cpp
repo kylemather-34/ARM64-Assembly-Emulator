@@ -107,7 +107,7 @@ try{ op.memOffset = parse_int(off); op.memHasOffset=true; } catch(...){}
 }
 return op;
 }
-
+}
 
 std::string up = upper(tok);
 } // namespace arm64
