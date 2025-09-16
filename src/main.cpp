@@ -1,34 +1,39 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+
 #include "parser.hpp"
 
+int main(int argc, char** argv) {
+    using namespace arm64;
 
-/*
-* Simple CLI front-end that reads a text file of ARM64 assembly and prints
-* parsed instructions and operands in a human-friendly format.
-*/
-int main(int argc, char** argv){
-using namespace arm64;
+    if (argc < 2) {
+        std::cerr << "usage: " << argv[0] << " <input.asm>\n";
+        return 1;
+    }
 
+    std::ifstream in(argv[1]);
+    if (!in) {
+        std::cerr << "error: could not open file: " << argv[1] << "\n";
+        return 1;
+    }
 
-if(argc < 2){
-std::cerr << "Usage: " << argv[0] << " <input_asm.txt>";
-std::cerr << "Example line: ADD X1, X2, X3";
-return 1;
-}
+    Parser parser; // previously undefined; now defined in parser.{hpp,cpp}
+    std::string line;
+    std::size_t lineNo = 1;
 
+    while (std::getline(in, line)) {
+        try {
+            auto decoded = parser.parse_line(line);
+            if (decoded) {
+                print_decoded(lineNo, *decoded); // previously undefined; now provided
+            }
+        } catch (const std::exception& ex) {
+            std::cerr << "Parse error on line " << lineNo << ": " << ex.what() << "\n";
+            return 2; // stop on first execution-blocking parse error
+        }
+        ++lineNo;
+    }
 
-std::ifstream fin(argv[1]);
-if(!fin){ std::cerr << "Failed to open input file: " << argv[1] << ""; return 2; }
-
-Parser parser;
-std::string line; std::size_t lineNo = 0;
-while(std::getline(fin, line)){
-++lineNo;
-auto decoded = parser.parse_line(line);
-if(!decoded.has_value()) continue; // skip blank/label lines
-arm64::print_decoded(lineNo, *decoded);
-}
-return 0;
+    return 0;
 }
