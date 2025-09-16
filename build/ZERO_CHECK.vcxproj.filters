@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\build\CMakeFiles\e4fcab2c8c2d06e409b075ced296f9f0\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{4FDA4201-024C-35B3-85EE-B3CEE40B3BFA}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

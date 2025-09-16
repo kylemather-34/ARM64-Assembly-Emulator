@@ -33,19 +33,42 @@ std::string trim(std::string s){ return ltrim(rtrim(std::move(s))); }
 std::string upper(std::string s){ for(char &c: s) c = std::toupper((unsigned char)c); return s; }
 
 
-std::vector<std::string> split_operands(const std::string &s){
-std::vector<std::string> out; std::string cur; int bracket = 0; bool in_quote=false; char quote='NULL';
-for(char c: s){
-if((c=='"' || c=='\'') && (bracket==0)) { in_quote = !in_quote; quote=c; cur.push_back(c); continue; }
-if(!in_quote){
-if(c=='[') bracket++;
-if(c==']' && bracket>0) bracket--;
-if(c==',' && bracket==0){ out.push_back(trim(cur)); cur.clear(); continue; }
-}
-cur.push_back(c);
-}
-if(!cur.empty()) out.push_back(trim(cur));
-return out;
+// Split by commas, but keep bracketed memory operands [ ... , ... ] together.
+std::vector<std::string> split_operands(const std::string &s) {
+    std::vector<std::string> out;
+    std::string cur;
+    int bracket = 0;
+
+    for (char c : s) {
+        if (c == '[') {
+            ++bracket;
+            cur.push_back(c);
+            continue;
+        }
+        if (c == ']') {
+            if (bracket > 0) --bracket;
+            cur.push_back(c);
+            continue;
+        }
+        if (c == ',' && bracket == 0) {
+            // end of one operand
+            // trim leading/trailing spaces
+            auto l = cur.find_first_not_of(" \t\r\n");
+            auto r = cur.find_last_not_of(" \t\r\n");
+            if (l != std::string::npos) out.emplace_back(cur.substr(l, r - l + 1));
+            cur.clear();
+            continue;
+        }
+        cur.push_back(c);
+    }
+
+    // push the last token
+    if (!cur.empty()) {
+        auto l = cur.find_first_not_of(" \t\r\n");
+        auto r = cur.find_last_not_of(" \t\r\n");
+        if (l != std::string::npos) out.emplace_back(cur.substr(l, r - l + 1));
+    }
+    return out;
 }
 
 
