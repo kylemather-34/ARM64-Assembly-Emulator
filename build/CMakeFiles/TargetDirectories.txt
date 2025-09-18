@@ -1,5 +1,6 @@
 C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/parser.dir
 C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/registers.dir
 C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/stack.dir
+C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/executor.dir
 C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/ALL_BUILD.dir
 C:/Users/Kyle/Desktop/Reverse Engineering/Project One/Code/build/CMakeFiles/ZERO_CHECK.dir

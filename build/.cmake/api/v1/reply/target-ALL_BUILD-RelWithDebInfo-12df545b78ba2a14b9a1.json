@@ -17,13 +17,16 @@
 	"dependencies" : 
 	[
 		{
+			"id" : "stack::@6890427a1f51a3e7e1df"
+		},
+		{
+			"id" : "executor::@6890427a1f51a3e7e1df"
+		},
+		{
 			"id" : "parser::@6890427a1f51a3e7e1df"
 		},
 		{
 			"id" : "registers::@6890427a1f51a3e7e1df"
-		},
-		{
-			"id" : "stack::@6890427a1f51a3e7e1df"
 		},
 		{
 			"id" : "ZERO_CHECK::@6890427a1f51a3e7e1df"

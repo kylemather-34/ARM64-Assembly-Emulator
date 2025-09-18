@@ -33,3 +33,12 @@ add_executable(stack
   src/stack.cpp
 )
 target_include_directories(stack PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Task 4: Executor
+add_executable(executor 
+  src/executor_main.cpp
+  src/executor.cpp
+  src/parser.cpp
+  src/registers.cpp
+)
+target_include_directories(executor PRIVATE ${CMAKE_SOURCE_DIR}/include)
