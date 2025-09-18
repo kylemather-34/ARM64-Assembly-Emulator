@@ -9,27 +9,28 @@
 
 #include "parser.hpp"
 #include "registers.hpp"
+#include "stack.hpp"
 
 namespace arm64 {
 
 struct AsmInst {
-    uint64_t addr;                // instruction address (0x0, 0x4, ...)
-    std::size_t instr_index;      // 1-based instruction index (for pretty printing)
+    uint64_t addr;                // 0x0, 0x4, 0x8, ...
+    std::size_t instr_index;      // 1-based index for pretty printing
     DecodedInstruction inst;
 };
 
 struct AsmProgram {
-    std::vector<AsmInst> code;                           // linear code
+    std::vector<AsmInst> code;
     std::unordered_map<std::string, uint64_t> labels;   // UPPER(label) -> addr
-    std::unordered_map<uint64_t, std::size_t> addr2idx; // addr -> index into code
+    std::unordered_map<uint64_t, std::size_t> addr2idx; // addr -> code index
 };
 
-// First pass: collect labels & instructions (with addresses)
+// First pass: parse and assign addresses; collect labels.
 AsmProgram build_program_from_file(const std::string& path, const Parser& parser);
 
-// Execute one step starting from PC. Returns false when program has finished.
-// Updates regs.PC appropriately (sequential + branching).
-bool step(const AsmProgram& prog, Registers& regs, uint64_t& pc);
+// Execute a single instruction at PC -> updates regs/stack/PC.
+// Returns false to halt (RET) or when PC == end.
+bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc);
 
 } // namespace arm64
 

@@ -13,6 +13,9 @@
     <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\registers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\stack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\CMakeLists.txt" />

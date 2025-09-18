@@ -133,35 +133,51 @@ DecodedInstruction LdrHandler::parse(const std::string& mnem, const std::vector<
 std::optional<DecodedInstruction> Parser::parseLine(const std::string& line) const {
     std::string s = trim(line);
     if (s.empty()) return std::nullopt;
-    // comments starting with ';' or '//'
     if (s.rfind("//", 0) == 0 || s[0] == ';') return std::nullopt;
 
-    // Extract mnemonic (which is first token) and rest of instruction (operands)
-    std::string mnem;
-    std::string rest;
+    // --- NEW: remove inline comments, but ignore anything inside [...] memory brackets ---
+    auto strip_inline_comments = [](std::string& t) {
+        bool in_brackets = false;
+        for (size_t i = 0; i < t.size(); ++i) {
+            char c = t[i];
+            if (c == '[') in_brackets = true;
+            else if (c == ']') in_brackets = false;
+            else if (!in_brackets) {
+                if (c == ';') { t = trim(t.substr(0, i)); break; }
+                if (c == '/' && i + 1 < t.size() && t[i+1] == '/') {
+                    t = trim(t.substr(0, i));
+                    break;
+                }
+            }
+        }
+    };
+    strip_inline_comments(s);
+    if (s.empty()) return std::nullopt;
+    // --- end NEW ---
+
+    // Extract mnemonic and operand tail
+    std::string mnemonic, rest;
     {
         std::istringstream iss(s);
-        iss >> mnem;
-        std::getline(iss, rest); // remainder including leading space before operands
+        iss >> mnemonic;
+        std::getline(iss, rest);
         rest = trim(rest);
     }
-    if (mnem.empty()) return std::nullopt;
+    if (mnemonic.empty()) return std::nullopt;
 
-    // parse operands
+    // Parse operands
     auto ops = rest.empty() ? std::vector<Operand>{} : parseOps(rest);
 
+    // Dispatch to handlers (as you already do)
     std::unique_ptr<InstructionHandler> handler;
-    const std::string up = upper(mnem);
-    if (up == "ADD") {
-        handler = std::make_unique<AddHandler>();
-    } else if (up == "LDR") {
-        handler = std::make_unique<LdrHandler>();
-    } else {
-        handler = std::make_unique<GenericHandler>();
-    }
+    const std::string up = upper(mnemonic);
+    if (up == "ADD")      handler = std::make_unique<AddHandler>();
+    else if (up == "LDR") handler = std::make_unique<LdrHandler>();
+    else                  handler = std::make_unique<GenericHandler>();
 
-    return handler->parse(mnem, ops);
+    return handler->parse(mnemonic, ops);
 }
+
 
 // Printing, matches sample output in Task 1
 static std::string memArrow(const std::string& memRaw) {

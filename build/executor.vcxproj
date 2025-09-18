@@ -368,6 +368,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\executor.cpp" />
     <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\parser.cpp" />
     <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\registers.cpp" />
+    <ClCompile Include="C:\Users\Kyle\Desktop\Reverse Engineering\Project One\Code\src\stack.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

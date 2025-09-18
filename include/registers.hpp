@@ -28,10 +28,12 @@ namespace arm64 {
 
 // Processor state flags
 struct ProcessorState {
-    bool N{false}; // Boolean for negative
-    bool Z{false}; // Boolean for zero
-    // C and V flags are not implemented
+    bool N{false}; // Negative
+    bool Z{false}; // Zero
+    bool C{false}; // Carry (for subs: NOT borrow)
+    bool V{false}; // Overflow (signed)
 };
+
 
 
 

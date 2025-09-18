@@ -68,6 +68,16 @@ public:
            << std::setw(8) << stackSize << "\n";
     }
 
+    void write8(std::size_t offset, uint8_t v) {
+        boundsCheck(offset, 1);
+        mem_[offset] = v;
+    }
+
+    uint8_t read8(std::size_t offset) const {
+        boundsCheck(offset, 1);
+        return mem_[offset];
+    }
+
 private:
     void boundsCheck(std::size_t offset, std::size_t width) const {
         if (offset + width > stackSize) {
