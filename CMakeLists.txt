@@ -13,8 +13,17 @@ else()
   add_compile_options(-Wall -Wextra -Wconversion -Wshadow)
 endif()
 
+# Task 1: Parser
 add_executable(parser
-  src/main.cpp
+  src/parser_main.cpp
   src/parser.cpp
 )
 target_include_directories(parser PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
+# Task 2: Registers
+add_executable(registers
+  src/registers_main.cpp
+  src/registers.cpp
+)
+target_include_directories(registers PRIVATE ${CMAKE_SOURCE_DIR}/include)
+

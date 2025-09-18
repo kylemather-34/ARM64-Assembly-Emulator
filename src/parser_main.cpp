@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    Parser parser; // previously undefined; now defined in parser.{hpp,cpp}
+    Parser parser;
     std::string line;
     std::size_t lineNo = 1;
 
@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         try {
             auto decoded = parser.parse_line(line);
             if (decoded) {
-                print_decoded(lineNo, *decoded); // previously undefined; now provided
+                print_decoded(lineNo, *decoded);
             }
         } catch (const std::exception& ex) {
             std::cerr << "Parse error on line " << lineNo << ": " << ex.what() << "\n";
