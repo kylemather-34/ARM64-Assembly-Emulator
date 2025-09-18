@@ -1,22 +1,17 @@
 #include <iostream>
-#include "registers.hpp"  // from Task 2
+#include "registers.hpp"  // Task 3 uses Task 2's registers.
 #include "stack.hpp"
 
 int main(int argc, char** argv) {
     // Create stack and registers
-    arm64::Stack stack(/*base_address=*/0x0);
-    arm64::Registers regs;
+    arm64::Stack stack(/*baseAddress=*/0x0);
+    arm64::Registers registers;
 
-    // Set SP to the stack base before executing anything (per task description)
-    regs.writeSP(stack.base());
+    // Set SP to the base of the stack before executing
+    registers.writeSP(stack.base());
 
-    // Optional: if user passes --random, show the “random bytes” example
-    if (argc > 1 && std::string(argv[1]) == "--random") {
-        stack.fill_random();
-    }
-
-    // Print just the stack (format exactly like the examples)
-    stack.print_dump(std::cout);
+    // Print just the stack, formatted like task example output
+    stack.printDump(std::cout);
 
     return 0;
 }

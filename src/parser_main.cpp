@@ -24,9 +24,9 @@ int main(int argc, char** argv) {
 
     while (std::getline(in, line)) {
         try {
-            auto decoded = parser.parse_line(line);
+            auto decoded = parser.parseLine(line);
             if (decoded) {
-                print_decoded(lineNo, *decoded);
+                printDecoded(lineNo, *decoded);
             }
         } catch (const std::exception& ex) {
             std::cerr << "Parse error on line " << lineNo << ": " << ex.what() << "\n";

@@ -26,7 +26,8 @@ add_executable(registers
   src/registers.cpp
 )
 target_include_directories(registers PRIVATE ${CMAKE_SOURCE_DIR}/include)
- # Task 3: Stack
+
+# Task 3: Stack
 add_executable(stack
   src/stack_main.cpp
   src/stack.cpp
