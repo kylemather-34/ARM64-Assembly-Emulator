@@ -130,6 +130,24 @@ static uint8_t stack_read8(const Stack& st, uint64_t addr) {
     return st.read8(o);
 }
 
+// ---------- stack read/write 32-bit ----------
+static void stack_write32(Stack& st, uint64_t addr, uint32_t v) {
+    if (addr < st.base() || addr + 4 > st.base() + st.size())
+        throw std::runtime_error("STR (32) out of stack bounds");
+    std::size_t o = static_cast<std::size_t>(addr - st.base());
+    for (int i = 0; i < 4; ++i) st.write8(o + i, static_cast<uint8_t>((v >> (i*8)) & 0xFF));
+}
+
+static uint32_t stack_read32(const Stack& st, uint64_t addr) {
+    if (addr < st.base() || addr + 4 > st.base() + st.size())
+        throw std::runtime_error("LDR (32) out of stack bounds");
+    std::size_t o = static_cast<std::size_t>(addr - st.base());
+    uint32_t v = 0;
+    for (int i = 0; i < 4; ++i) v |= (static_cast<uint32_t>(st.read8(o + i)) << (i*8));
+    return v;
+}
+
+
 // ---------- flags from SUB result (width 32/64) ----------
 static void set_flags_sub_64(ProcessorState& ps, uint64_t a, uint64_t b, uint64_t res) {
     ps.N = (res >> 63) & 1;
@@ -279,33 +297,51 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
         }
     }
     else if (up == "LDR" || up == "LDRB") {
-        // LDR Rt, [base{, #off}]   /   LDRB Rt, [base{, #off}]
+        // LDR Rt, [base{,#off}]   /   LDRB Rt, [base{,#off}]
         if (ops.size() != 2 || !operand_is_reg(0) || !operand_is_mem(1))
             throw std::runtime_error(up + " expects Rt, [base{,#off}]");
+
         uint64_t ea = eff_addr_from_mem_token(ops[1], regs);
+
         if (up == "LDRB") {
             uint8_t byte = stack_read8(stack, ea);
             // write byte zero-extended into dest width
             std::string rtU = regU(0);
             if (is_w_reg_token(rtU)) write_dest(0, static_cast<uint32_t>(byte));
             else                      write_dest(0, static_cast<uint64_t>(byte));
-        } else {
-            uint64_t v = stack_read64(stack, ea);
-            write_dest(0, v);
+        } else { // LDR
+            std::string rtU = regU(0);
+            if (is_w_reg_token(rtU)) {
+                uint32_t w = stack_read32(stack, ea);         // 4 bytes, zero-extend
+                write_dest(0, static_cast<uint64_t>(w));
+            } else {
+                uint64_t x = stack_read64(stack, ea);         // 8 bytes
+                write_dest(0, x);
+            }
         }
     }
     else if (up == "STR" || up == "STRB") {
-        // STR Rt, [base{, #off}]   /  STRB Rt, [base{, #off}]
+        // STR Rt, [base{,#off}]   /  STRB Rt, [base{,#off}]
         if (ops.size() != 2 || !operand_is_reg(0) || !operand_is_mem(1))
             throw std::runtime_error(up + " expects Rt, [base{,#off}]");
+
         uint64_t ea = eff_addr_from_mem_token(ops[1], regs);
-        uint64_t v = read_src64(0);
+        std::string rtU = regU(0);
+
         if (up == "STRB") {
+            uint64_t v = read_src64(0);
             stack_write8(stack, ea, static_cast<uint8_t>(v & 0xFF));
-        } else {
-            stack_write64(stack, ea, v);
+        } else { // STR
+            if (is_w_reg_token(rtU)) {
+                uint32_t w = static_cast<uint32_t>(read_src64(0));  // low 32
+                stack_write32(stack, ea, w);                         // 4 bytes
+            } else {
+                uint64_t x = read_src64(0);
+                stack_write64(stack, ea, x);                         // 8 bytes
+            }
         }
     }
+
     else if (up == "B") {
         // B label
         if (ops.size() != 1 || ops[0].type != OperandType::Label)
