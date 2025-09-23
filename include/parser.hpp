@@ -11,7 +11,7 @@
 * - Uses instruction-specific handlers for stricter parsing (ex. ADD, LDR, STR).
 * - Extensible design, additional instruction handlers can be added.
 
-* Author: Kyle Mather
+* Author: Kyle Mather and Braeden Allen
 */
 
 #ifndef ARM64_PARSER_HPP

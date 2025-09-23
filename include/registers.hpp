@@ -11,7 +11,7 @@
 * - Maintains processor state flags for conditional execution.
 * - Includes a print() function for human readable registers.
 *
-* Author: Kyle Mather
+* Author: Kyle Mather and Braeden Allen
 */
 
 #ifndef ARM64_REGISTERS_HPP

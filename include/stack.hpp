@@ -1,3 +1,21 @@
+/*
+* ARM64 Stack Memory
+*
+* This header defines a compact, byte-addressable stack model used by
+* the simplified ARM64 emulator.
+*
+* - Provides a contiguous 256-byte buffer with a configurable base address.
+* - Little-endian layout for multi-byte values.
+* - Read/write helpers for bytes (read8/write8); 32-/64-bit helpers are
+*   implemented in the executor using these primitives.
+* - Optional fill_random() to seed demo data.
+* - print_dump() pretty-prints a hex+ASCII view matching the spec.
+* - Bounds-checked accesses; throws on out-of-range operations.
+* - Designed to interoperate with SP in the Registers model.
+*
+* Author: Kyle Mather and Braeden Allen
+*/
+
 #ifndef ARM64_STACK_HPP
 #define ARM64_STACK_HPP
 
