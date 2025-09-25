@@ -133,10 +133,10 @@ DecodedInstruction LdrHandler::parse(const std::string& mnem, const std::vector<
 std::optional<DecodedInstruction> Parser::parseLine(const std::string& line) const {
     std::string s = trim(line);
     if (s.empty()) return std::nullopt;
+
     if (s.rfind("//", 0) == 0 || s[0] == ';') return std::nullopt;
 
-    // --- NEW: remove inline comments, but ignore anything inside [...] memory brackets ---
-    auto strip_inline_comments = [](std::string& t) {
+    auto stripInline = [](std::string& t) {
         bool in_brackets = false;
         for (size_t i = 0; i < t.size(); ++i) {
             char c = t[i];
@@ -144,18 +144,43 @@ std::optional<DecodedInstruction> Parser::parseLine(const std::string& line) con
             else if (c == ']') in_brackets = false;
             else if (!in_brackets) {
                 if (c == ';') { t = trim(t.substr(0, i)); break; }
-                if (c == '/' && i + 1 < t.size() && t[i+1] == '/') {
-                    t = trim(t.substr(0, i));
-                    break;
-                }
+                if (c == '/' && i + 1 < t.size() && t[i+1] == '/') { t = trim(t.substr(0, i)); break; }
             }
         }
     };
-    strip_inline_comments(s);
+    stripInline(s);
     if (s.empty()) return std::nullopt;
-    // --- end NEW ---
 
-    // Extract mnemonic and operand tail
+    auto dropPrefAddr = [](std::string& t) {
+        size_t colon = t.find(':');
+        if (colon == std::string::npos) return;
+        bool all_hex = (colon > 0);
+        for (size_t i = 0; i < colon; ++i) {
+            unsigned char ch = static_cast<unsigned char>(t[i]);
+            if (!std::isxdigit(ch) && !std::isspace(ch)) { all_hex = false; break; }
+        }
+        if (all_hex) t = trim(t.substr(colon + 1));
+    };
+    dropPrefAddr(s);
+
+    auto dropLeadingOpcodeHex = [](std::string& t) {
+        size_t p = 0;
+        while (p < t.size() && !std::isspace(static_cast<unsigned char>(t[p]))) ++p;
+        std::string tok = t.substr(0, p);
+
+        auto is_opcode_hex = [](const std::string& w) -> bool {
+            if (w.size() != 8) return false;
+            for (unsigned char c : w) if (!std::isxdigit(c)) return false;
+            return true;
+        };
+
+        if (is_opcode_hex(tok)) t = trim(t.substr(p));
+    };
+    dropLeadingOpcodeHex(s);
+
+    if (s.empty()) return std::nullopt;
+
+    // mnemonic + rest
     std::string mnemonic, rest;
     {
         std::istringstream iss(s);
@@ -165,10 +190,10 @@ std::optional<DecodedInstruction> Parser::parseLine(const std::string& line) con
     }
     if (mnemonic.empty()) return std::nullopt;
 
-    // Parse operands
+    // operands
     auto ops = rest.empty() ? std::vector<Operand>{} : parseOps(rest);
 
-    // Dispatch to handlers (as you already do)
+    // dispatch
     std::unique_ptr<InstructionHandler> handler;
     const std::string up = upper(mnemonic);
     if (up == "ADD")      handler = std::make_unique<AddHandler>();

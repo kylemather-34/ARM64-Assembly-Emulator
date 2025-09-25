@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
         Registers regs;
         Stack stack(/*base=*/0x0);
         if (randomStack) stack.fillRandom();
-        regs.writeSP(stack.base());
+        regs.writeSP(stack.base() + stack.size());
 
         // Start PC at 0x0 (advances by 4; branches handled in step)
         uint64_t pc = 0;
