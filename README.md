@@ -260,6 +260,4 @@ Keep a tiny shim in parser.hpp:
 
 inline void printDecoded(std::size_t n, const DecodedInstruction& d){ print_decoded(n,d); }
 
-Author
-
-Kyle Mather — headers carry author tags. This project is for learning/educational purposes and intentionally omits many ARM64 features (vector/FP, complex addressing modes, pipelines, exceptions, etc.)
+Authors: Kyle Mather and Braeden Allen — headers carry author tags. This project is for learning/educational purposes and intentionally omits many ARM64 features (vector/FP, complex addressing modes, pipelines, exceptions, etc.)
