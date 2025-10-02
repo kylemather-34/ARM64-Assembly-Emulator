@@ -8,7 +8,7 @@
 
 namespace arm64 {
 
-// String helper functions
+// String helpers
 static std::string trimCopy(std::string s) {
     auto not_space = [](int ch){ return !std::isspace(ch); };
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
@@ -17,12 +17,15 @@ static std::string trimCopy(std::string s) {
 }
 
 static std::string upperCopy(std::string s) {
-    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
     return s;
 }
 
 // Label collection
-static std::string collectLeadingLabels(std::string line, uint64_t next_instr_addr, std::unordered_map<std::string, uint64_t>& out) {
+static std::string collectLeadingLabels(std::string line,
+                                        uint64_t next_instr_addr,
+                                        std::unordered_map<std::string, uint64_t>& out) {
     std::string s = trimCopy(std::move(line));
     while (true) {
         auto pos = s.find(':');
@@ -38,9 +41,9 @@ static std::string collectLeadingLabels(std::string line, uint64_t next_instr_ad
     return s;
 }
 
-// Register helper functions
+// Register helpers
 static bool isWReg(const std::string& tokU) { return !tokU.empty() && tokU[0] == 'W'; }
-static bool isXReg(const std::string& tokU) { return !tokU.empty() && tokU[0] == 'X'; }
+// static bool isXReg(const std::string& tokU) { return !tokU.empty() && tokU[0] == 'X'; } // (unused)
 
 static unsigned regIndex(std::string tok) {
     std::string u = upperCopy(trimCopy(tok));
@@ -55,7 +58,7 @@ static unsigned regIndex(std::string tok) {
     return 999;
 }
 
-// Decode memory operand to effective address
+// Memory helpers
 static uint64_t parseImm(std::string s) {
     s = trimCopy(s);
     if (!s.empty() && s[0] == '#') s.erase(s.begin());
@@ -66,19 +69,23 @@ static uint64_t parseImm(std::string s) {
 }
 
 static uint64_t effectiveAddr(const Operand& mem, const Registers& regs) {
-    // mem.raw like "[SP, #8]" or "[X1, 0x10]" or "[SP]"
     const std::string& t = mem.raw;
     if (t.size() < 2 || t.front() != '[' || t.back() != ']') {
         throw std::runtime_error("invalid memory operand: " + t);
     }
-    std::string inside = trimCopy(std::string(t.begin()+1, t.end()-1));
+
+    std::string inside = trimCopy(std::string(t.begin() + 1, t.end() - 1));
+
+    // split first comma
     std::string base = inside;
-    std::string off;
+    std::string rest;
     auto comma = inside.find(',');
     if (comma != std::string::npos) {
         base = trimCopy(inside.substr(0, comma));
-        off  = trimCopy(inside.substr(comma + 1));
+        rest = trimCopy(inside.substr(comma + 1));
     }
+
+    // base register
     std::string bu = upperCopy(base);
     unsigned b = regIndex(bu);
 
@@ -88,19 +95,58 @@ static uint64_t effectiveAddr(const Operand& mem, const Registers& regs) {
     } else if (b == Registers::XZR_INDEX + 1) { // SP
         base_val = regs.readSP();
     } else if (b != 999) {
-        // assume Xn base (use 64-bit)
-        base_val = regs.readX(b);
+        base_val = regs.readX(b); // base is always 64-bit address
     } else {
         throw std::runtime_error("invalid base register in memory operand: " + base);
     }
 
-    uint64_t off_val = 0;
-    if (!off.empty()) off_val = parseImm(off);
+    if (rest.empty()) {
+        return base_val;
+    }
 
-    return base_val + off_val;
+    std::string idxTok = rest;
+    std::string shiftTok;
+    auto comma2 = rest.find(',');
+    if (comma2 != std::string::npos) {
+        idxTok   = trimCopy(rest.substr(0, comma2));
+        shiftTok = upperCopy(trimCopy(rest.substr(comma2 + 1)));
+    }
+
+    uint64_t idx_val = 0;
+    if (!idxTok.empty() && (idxTok[0] == '#' || std::isdigit(static_cast<unsigned char>(idxTok[0])))) {
+        idx_val = parseImm(idxTok);
+    } else {
+        // Register offset (Xn or Wn)
+        std::string iu = upperCopy(idxTok);
+        unsigned r = regIndex(iu);
+        if (r == 999) {
+            throw std::runtime_error("invalid index in memory operand: " + idxTok);
+        }
+        if (r == Registers::XZR_INDEX) {
+            idx_val = 0;
+        } else if (iu.size() && iu[0] == 'W') {
+            idx_val = static_cast<uint64_t>(regs.readW(r)); // zero-extended
+        } else { // Xn
+            idx_val = regs.readX(r);
+        }
+
+        if (!shiftTok.empty()) {
+            if (shiftTok.rfind("LSL", 0) != 0) {
+                throw std::runtime_error("unsupported index shift (only LSL #imm allowed): " + shiftTok);
+            }
+            auto hash = shiftTok.find('#');
+            if (hash == std::string::npos) {
+                throw std::runtime_error("missing shift immediate in: " + shiftTok);
+            }
+            uint64_t sh = parseImm(shiftTok.substr(hash));
+            idx_val <<= (sh & 63);
+        }
+    }
+
+    return base_val + idx_val;
 }
 
-// Stack read and write capabilities for 64 bit
+// Stack read/write
 static void stackWrite64(Stack& st, uint64_t addr, uint64_t v) {
     if (addr < st.base() || addr + 8 > st.base() + st.size())
         throw std::runtime_error("STR out of stack bounds");
@@ -128,14 +174,13 @@ static uint8_t stackRead8(const Stack& st, uint64_t addr) {
     return st.read8(o);
 }
 
-// Stack read and write capabilities for 32 bit
+// 32-bit width
 static void stackWrite32(Stack& st, uint64_t addr, uint32_t v) {
     if (addr < st.base() || addr + 4 > st.base() + st.size())
         throw std::runtime_error("STR (32) out of stack bounds");
     std::size_t o = static_cast<std::size_t>(addr - st.base());
     for (int i = 0; i < 4; ++i) st.write8(o + i, static_cast<uint8_t>((v >> (i*8)) & 0xFF));
 }
-
 static uint32_t stackRead32(const Stack& st, uint64_t addr) {
     if (addr < st.base() || addr + 4 > st.base() + st.size())
         throw std::runtime_error("LDR (32) out of stack bounds");
@@ -145,14 +190,11 @@ static uint32_t stackRead32(const Stack& st, uint64_t addr) {
     return v;
 }
 
-
-// flags from SUB result
+// Flags for SUB/CMP
 static void stackSubFlags64(ProcessorState& ps, uint64_t a, uint64_t b, uint64_t res) {
     ps.N = (res >> 63) & 1;
     ps.Z = (res == 0);
-    // C is NOT borrow for subtraction
-    ps.C = (a >= b);
-    // V: signed overflow on a - b
+    ps.C = (a >= b); // NOT borrow
     const bool sa = (a >> 63) & 1;
     const bool sb = (b >> 63) & 1;
     const bool sr = (res >> 63) & 1;
@@ -168,7 +210,35 @@ static void stackSubFlags32(ProcessorState& ps, uint32_t a, uint32_t b, uint32_t
     ps.V = (sa != sb) && (sr != sa);
 }
 
-// Build program from file
+//  Branch target resolver
+static bool tryParseHexAddrLabelish(std::string labelish, uint64_t& out_addr) {
+    std::string t = trimCopy(std::move(labelish));
+    size_t cut = t.find_first_of(" <");
+    if (cut != std::string::npos) t = t.substr(0, cut);
+    t = trimCopy(t);
+    if (t.empty()) return false;
+
+    // 0x-prefixed
+    if (t.size() > 2 && (t.rfind("0x", 0) == 0 || t.rfind("0X", 0) == 0)) {
+        try { out_addr = static_cast<uint64_t>(std::stoull(t, nullptr, 16)); return true; }
+        catch (...) { return false; }
+    }
+    // bare hex
+    for (unsigned char c : t) if (!std::isxdigit(c)) return false;
+    try { out_addr = static_cast<uint64_t>(std::stoull(t, nullptr, 16)); return true; }
+    catch (...) { return false; }
+}
+
+static uint64_t resolveBranchTarget(const AsmProgram& prog, const std::string& op_text) {
+    uint64_t addr = 0;
+    if (tryParseHexAddrLabelish(op_text, addr)) return addr;
+    std::string key = upperCopy(trimCopy(op_text));
+    auto it = prog.labels.find(key);
+    if (it != prog.labels.end()) return it->second;
+    throw std::runtime_error("undefined label: " + op_text);
+}
+
+// Build program
 AsmProgram buildFileProgram(const std::string& path, const Parser& parser) {
     std::ifstream in(path);
     if (!in) throw std::runtime_error("could not open input file: " + path);
@@ -188,7 +258,7 @@ AsmProgram buildFileProgram(const std::string& path, const Parser& parser) {
         if (s.empty()) continue;
         if (s.rfind("//", 0) == 0 || s[0] == ';') continue;
 
-        auto decoded = parser.parseLine(s);      // have shim for parseLine if needed
+        auto decoded = parser.parseLine(s);
         if (!decoded) continue;
 
         AsmInst ai;
@@ -203,7 +273,7 @@ AsmProgram buildFileProgram(const std::string& path, const Parser& parser) {
     return prog;
 }
 
-// Execute an instruction, return true if more instructions remain
+// Execute one instruction
 bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
     if (prog.code.empty()) return false;
     const uint64_t endAddr = (prog.code.size() * 4ull);
@@ -215,7 +285,7 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
     }
     const AsmInst& ai = prog.code[it->second];
 
-    // Default next PC
+    // Default next PC (sequential)
     uint64_t nextPC = pc + 4ull;
 
     const std::string up = upperCopy(ai.inst.mnem);
@@ -228,7 +298,6 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
     auto regU = [&](size_t i){ return upperCopy(ops.at(i).raw); };
 
     auto readSrc64 = [&](size_t i)->uint64_t {
-        // If token is Wn -> zero-extend; if Xn -> 64-bit
         std::string u = regU(i);
         unsigned r = regIndex(u);
         if (r == Registers::XZR_INDEX) return 0;
@@ -240,49 +309,44 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
     auto writeDest = [&](size_t i, uint64_t value){
         std::string u = regU(i);
         unsigned r = regIndex(u);
-        if (r == Registers::XZR_INDEX) return;              // write ignored
+        if (r == Registers::XZR_INDEX) return;              // writes to XZR/WZR ignored
         if (r == Registers::XZR_INDEX + 1) { regs.writeSP(value); return; }
         if (r == 999) throw std::runtime_error("invalid dest register");
         if (isWReg(u)) regs.writeW(r, static_cast<uint32_t>(value));
-        else                   regs.writeX(r, value);
+        else           regs.writeX(r, value);
     };
 
-    auto reamImm64 = [&](size_t i)->uint64_t {
+    auto readImm64 = [&](size_t i)->uint64_t {
         if (!isImm(i)) throw std::runtime_error("immediate expected");
         return static_cast<uint64_t>(ops[i].imm);
     };
 
     // execute
-    if (up == "NOP") {
-        // do nothing
-    }
+    if (up == "NOP") {}
     else if (up == "MOV") {
-        // MOV Rd, Rn | #imm
         if (ops.size() != 2) throw std::runtime_error("MOV expects 2 operands");
-        uint64_t v = isImm(1) ? reamImm64(1) : readSrc64(1);
+        uint64_t v = isImm(1) ? readImm64(1) : readSrc64(1);
         writeDest(0, v);
     }
     else if (up == "ADD" || up == "SUB" || up == "AND" || up == "EOR" || up == "MUL") {
         if (ops.size() != 3) throw std::runtime_error(up + " expects 3 operands");
         uint64_t a = readSrc64(1);
-        uint64_t b = isImm(2) ? reamImm64(2) : readSrc64(2);
+        uint64_t b = isImm(2) ? readImm64(2) : readSrc64(2);
 
         uint64_t res = 0;
-        if (up == "ADD")      res = a + b;
+        if      (up == "ADD") res = a + b;
         else if (up == "SUB") res = a - b;
         else if (up == "AND") res = (a & b);
         else if (up == "EOR") res = (a ^ b);
         else                  res = (a * b); // MUL (low 64)
         writeDest(0, res);
-        // (No flags unless you add *S variants; CMP handles flags)
     }
     else if (up == "CMP") {
-        // CMP Rn, Rm | #imm    (sets N,Z,C,V like SUBS)
         if (ops.size() != 2 || !isReg(0))
             throw std::runtime_error("CMP expects Rn, (Rm|#imm)");
         std::string rnU = regU(0);
         uint64_t a = readSrc64(0);
-        uint64_t b = isImm(1) ? reamImm64(1) : readSrc64(1);
+        uint64_t b = isImm(1) ? readImm64(1) : readSrc64(1);
 
         if (isWReg(rnU)) {
             uint32_t aa = static_cast<uint32_t>(a);
@@ -295,7 +359,6 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
         }
     }
     else if (up == "LDR" || up == "LDRB") {
-        // LDR Rt, [base{,#off}]   /   LDRB Rt, [base{,#off}]
         if (ops.size() != 2 || !isReg(0) || !isMem(1))
             throw std::runtime_error(up + " expects Rt, [base{,#off}]");
 
@@ -303,17 +366,16 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
 
         if (up == "LDRB") {
             uint8_t byte = stackRead8(stack, ea);
-            // write byte zero-extended into dest width
             std::string rtU = regU(0);
             if (isWReg(rtU)) writeDest(0, static_cast<uint32_t>(byte));
-            else                      writeDest(0, static_cast<uint64_t>(byte));
+            else             writeDest(0, static_cast<uint64_t>(byte));
         } else { // LDR
             std::string rtU = regU(0);
             if (isWReg(rtU)) {
-                uint32_t w = stackRead32(stack, ea);         // 4 bytes, zero-extend
-                writeDest(0, static_cast<uint64_t>(w));
+                uint32_t w = stackRead32(stack, ea);
+                writeDest(0, static_cast<uint64_t>(w)); // zero-extend
             } else {
-                uint64_t x = stackRead64(stack, ea);         // 8 bytes
+                uint64_t x = stackRead64(stack, ea);
                 writeDest(0, x);
             }
         }
@@ -330,43 +392,32 @@ bool step(const AsmProgram& prog, Registers& regs, Stack& stack, uint64_t& pc) {
             stackWrite8(stack, ea, static_cast<uint8_t>(v & 0xFF));
         } else { // STR
             if (isWReg(rtU)) {
-                uint32_t w = static_cast<uint32_t>(readSrc64(0));  // low 32
-                stackWrite32(stack, ea, w);                         // 4 bytes
+                uint32_t w = static_cast<uint32_t>(readSrc64(0));
+                stackWrite32(stack, ea, w);
             } else {
                 uint64_t x = readSrc64(0);
-                stackWrite64(stack, ea, x);                         // 8 bytes
+                stackWrite64(stack, ea, x);
             }
         }
     }
-
     else if (up == "B") {
         if (ops.size() != 1 || ops[0].type != OperandType::Label)
-            throw std::runtime_error("B expects a single label operand");
-        std::string key = upperCopy(trimCopy(ops[0].raw));
-        auto jt = prog.labels.find(key);
-        if (jt == prog.labels.end()) throw std::runtime_error("undefined label: " + ops[0].raw);
-        nextPC = jt->second;
+            throw std::runtime_error("B expects a single label/address operand");
+        nextPC = resolveBranchTarget(prog, ops[0].raw);
     }
     else if (up == "B.GT" || up == "B.LE") {
         if (ops.size() != 1 || ops[0].type != OperandType::Label)
-            throw std::runtime_error(up + " expects a single label operand");
+            throw std::runtime_error(up + " expects a single label/address operand");
         const auto& ps = regs.state();
-        bool take = false;
-        if (up == "B.GT") take = (!ps.Z && (ps.N == ps.V));
-        else              take = ( ps.Z || (ps.N != ps.V));
-
-        if (take) {
-            std::string key = upperCopy(trimCopy(ops[0].raw));
-            auto jt = prog.labels.find(key);
-            if (jt == prog.labels.end()) throw std::runtime_error("undefined label: " + ops[0].raw);
-            nextPC = jt->second;
-        }
+        bool take = (up == "B.GT") ? (!ps.Z && (ps.N == ps.V))
+                                   : ( ps.Z || (ps.N != ps.V));
+        if (take) nextPC = resolveBranchTarget(prog, ops[0].raw);
     }
     else if (up == "RET") {
         return false; // halt emulation
     }
     else {
-        // Unimplemented mnemonic, treat as NOP or throw:
+        // Unimplemented mnemonic — treat as NOP or throw:
         // throw std::runtime_error("unimplemented instruction: " + up);
     }
 
